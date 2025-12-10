@@ -1,25 +1,22 @@
-import logo from './logo.svg';
-import './App.css';
+import CurrencyConverter from "./components/CurrencyConverter"
+import CryptoLinks from "./components/CryptoLinks"
+
+
+{/*make containers*/}
+{/*label everything*/}
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+ return (
+
+    <div className="app">
+      <div className="box">
+      <CurrencyConverter/> 
+      <CryptoLinks/>
+      </div>
+   
     </div>
-  );
+
+  )
 }
 
-export default App;
+export default App
