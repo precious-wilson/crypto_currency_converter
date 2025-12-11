@@ -15,7 +15,8 @@ code {
 .app{
   display: flex; 
   align-items: center;  
-  /*  */
+  height:100vh;
+  width:100vw;
   flex-direction: column;
  
 }
@@ -25,7 +26,33 @@ code {
   text-align: center;   /* --- centres the text in the component --- */
   padding: 10px; 
   margin : 5px; 
+}
 
+.container input{
+  border: solid 1px grey;
+  padding:3px;
+  border-radius:5px;
+  cursor: pointer;
+  outline:none;
+}
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+
+.container input:hover{
+ border: solid 2px blue;
+}
+
+.container select{
+  border: solid 1px grey;
+  padding:3px;
+  border-radius:5px;
+  cursor: pointer;
+  outline:none;
 }
 
 
@@ -53,7 +80,7 @@ code {
 
 .container
 {
-  background-color: rgba(234, 163, 100, 0.717);
+  background-color: red;/*rgba(234, 163, 100, 0.717);*/
   border-radius: 5px;
   margin-top: 10px;
   padding: 30px;
