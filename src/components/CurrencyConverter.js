@@ -1,174 +1,229 @@
-import { useState } from 'react'   //must be at the top!!
+import { useState, useEffect } from 'react'; // import useEffect
 import axios from 'axios'
 import ExchangeRate from './ExchangeRate'
+import CryptoLinks from "./CryptoLinks";
+
 
 function CurrencyConverter(){
   
-  const currencyMap = { //hashmap / dictionary of currencies
+  const currencyMap = { //hashmap / dictionary of ALL currencies
     BTC: 'Bitcoin',
     ETH: 'Ethereum',
-    USDT: 'Tether'
+    USDT: 'Tether',
+    USD: 'US Dollar',
+    EUR: 'Euro',
+    NGN: 'Naira'
   }
+
+  const coinGeckoMap = { //hashmap / dictionary of crypto-currencies
+    BTC: 'bitcoin',
+    ETH: 'ethereum',
+    USDT: 'tether'
+};
+
+
+  const fiatCurrencies = ['USD', 'EUR', 'NGN'];  //hashmap / dictionary of fiat currencies
+
 
   const currencies = Object.keys(currencyMap)  // creates an array of all the keys in your object. -  ['BTC', 'ETH', 'USDT'] 
 
   const [option_a, setOption_A] = useState('BTC')
-  const [option_b, setOption_B] = useState('BTC')  //i wanted it start at naira as thats my preferred currency to exchange ..easier for me
-  const [number_a, setAmount] = useState(0)
-  const [result, setResult] = useState(0)
+  const [option_b, setOption_B] = useState('ETH')  //i wanted it start at naira as thats my preferred currency to exchange ..easier for me
+  const [number_a, setAmount] = useState(1)
+  const [result, setResult] = useState(1)
   const [rate, setRate] = useState('')
+  const [showNews, setShowNews] = useState(false);
+  const [rateCache, setRateCache] = useState({}); // set cache results
 
   const filter = (key) => { //return the value based on what key was chosen
    return currencyMap[key] 
   }
 
-  const convert = async () => {
-    const options = {
-        method: 'GET',
-        url: 'https://alpha-vantage.p.rapidapi.com/query', 
-        params: {
-          function: 'CURRENCY_EXCHANGE_RATE',
-          from_currency: option_a,
-          to_currency: option_b
-        },
-        headers: {
-          'X-RapidAPI-Key': process.env.REACT_APP_Rapid_API_Key,
-          'X-RapidAPI-Host': 'alpha-vantage.p.rapidapi.com'
+  
+
+  
+
+  const convert = async (amount = number_a, from = option_a, to = option_b) => {
+    // when from currency Same as to currency return and set rate to 1:1
+   if (from === to) {
+    if (!amount || isNaN(amount)) {
+      setResult('');
+      setRate('');
+      return;
+    }
+    setResult(amount);
+    setRate(`1 ${currencyMap[from]} = 1 ${currencyMap[to]}`);
+    return;
+}
+
+    const cacheKey = `${from}_${to}`;
+
+    // 2️⃣ Check cache first
+    if (rateCache[cacheKey]) 
+    {
+      const cachedRate = rateCache[cacheKey];
+      setResult(cachedRate * amount);
+      setRate(`1 ${currencyMap[from]} = ${cachedRate} ${currencyMap[to]}`);
+      return;
+    }
+    
+    try 
+    {
+      let exchangeRate;
+      const isFromCrypto = coinGeckoMap[from];
+      const isToCrypto = coinGeckoMap[to];
+
+ //Crypto → Anything (CoinGecko)
+      if (isFromCrypto && !isToCrypto) 
+      {
+        const response = await axios.get(
+          'https://api.coingecko.com/api/v3/simple/price',
+          {
+            params: {
+              ids: coinGeckoMap[from],
+              vs_currencies: to.toLowerCase()
+            }
+          }
+        );
+
+      exchangeRate =
+        response.data[coinGeckoMap[from]][to.toLowerCase()];
+    }
+
+      // 4️⃣ Fiat → Fiat (exchangerate.host - latest endpoint)
+    else if (!isFromCrypto && !isToCrypto) {
+      const response = await axios.get( 'https://api.exchangerate.host/latest', {params: {base: from, symbols: to}});
+      exchangeRate = response.data?.rates?.[to];
+    }
+
+     // 5️⃣ Crypto → Crypto
+    else if (isFromCrypto && isToCrypto) {
+      const response = await axios.get(
+        'https://api.coingecko.com/api/v3/simple/price',
+        {
+          params: {
+            ids: coinGeckoMap[from],
+            vs_currencies: to.toLowerCase()
+          }
         }
-      }
-      try {
-          const response = await axios.request(options)
-          const exchangeRate = parseFloat(response.data['Realtime Currency Exchange Rate']['5. Exchange Rate'])
-          setResult(exchangeRate * number_a)    
-          setRate(`1 ${filter(option_a)} = ${exchangeRate} ${filter(option_b)}`);
-      } 
-      catch (error) {
-          console.error(error);
-      }
-    // you go thorugh domething which accesses the information and gives it to you i.e it has the right to 
-    // access this information so then it gibves otj toy uoitself i.e you are not directly acessing this infromatio 
-    // yourself
-  }
+      );
 
-  return (
-    <div className="currency-converter">
-      {/* create a heading that will be read on this container */}
-      <label><h3>Currency Converter</h3></label> 
+      exchangeRate =
+        response.data[coinGeckoMap[from]][to.toLowerCase()];
+    }
 
-      <div className="currency-A">     
-        <div className="container">
-          {/* for structural order so we doiong it as a table insteatd of directly */}
-          <table>    
-            {/* next to eachother so it will be aliigned */}
-            <tbody> {/* in a table there is the heading and a body just to spoecify this is */}
-              {/* the body as its a generic table for order rather than data cells */}
-              <tr> {/* creates a row in the table */}
-                {/* <td> (1st data cell) 
-                  <label id="primarylabel"> Primary Currency </label> add pink and white bubble font to te text
-                </td> */}
-                <td> {/* (second data cell) */}
-                  {/* The name attribute is how you reference the input, once the value from the input gets sent back to the server */}
-                  <input 
-                    type="number"   
-                    name="innitialcurrency"  
-                    value={number_a}
-                    onChange={(e) => setAmount(e.target.value)}
-                  /> 
-                  {/* ...(brocode handle error if they put a letter by mistake) */}
-                </td>    
-                <td>
-                  <select 
-                    className= "select_options"  
-                    name="selected_option"  
-                    value={option_a} 
-                    id="currency_choice" //value i.e option select result will now show as the va;ue option i.e choice of wanted option/ selected opion and stay there abd update 
-                    onChange={(e) => setOption_A(e.target.value)}
-                  >   
-                    {/* currency = ['BTC', 'ETH', 'USDT'] index = position 0,1,2 */}
-                    {currencies.map((currency, _index) =>(  
-                      <option key={_index} id={currency} value={currency}> {/* each item in an option needs a key */}
-                        {currency} 
-                      </option>
-                    )) }                                                                                          
-                  </select>
-                  {/* This is an array of your currency codes: ['BTC', 'ETH', 'USDT'].
-                      map() = A JavaScript function that goes through every item in the array and creates something for each item.
-                      Here, for each currency, it creates an <option> element.
-                      currency = The current item in the array ('BTC', 'ETH', 'USDT').
-                      _index = The position of the item in the array (0, 1, 2…).
-                      Used as the React key, which helps React track elements efficiently */}
-                </td>
-                {/* </td>do again with add event listener */}
-              </tr>
-            </tbody>
-          </table>
+    // 6️⃣ Fiat → Crypto
+    else if (!isFromCrypto && isToCrypto) {
+      const response = await axios.get(
+        'https://api.coingecko.com/api/v3/simple/price',
+        {
+          params: {
+            ids: coinGeckoMap[to],
+            vs_currencies: from.toLowerCase()
+          }
+        }
+      );
 
-          <div className="currency-B">
-            <table>                                  
-              <tbody>   
-                <tr>                         
-                  {/* <td>                       
-                     <label id="primarylabel">Secondary Currency</label>   add pink and white bubble font to te text */}
-                     {/* try to add where the label changes to whatever currency is picked */}
-                  {/* </td> */}
-                  <td>                       
-                    <input 
-                      type="number"
-                      name="second_input"  
-                      value={result}      //the value of the input text box.. right now it is null
-                      readOnly
-                    />
-                  </td>
-                  <td>
-                    <select 
-                      className="select_options2" 
-                      name="option2" 
-                      id="currency_choice2" 
-                      value={option_b} 
-                      onChange={(e) => setOption_B(e.target.value)}
-                    >
-                      {currencies.map((currency, _index) => (
-                        <option key={_index} value={currency}> 
-                          {currency} 
-                        </option>
-                      ))}  
-                    </select>                        
-                  </td>          
-                </tr> 
-              </tbody>
-            </table>
+      const priceInFiat =
+        response.data[coinGeckoMap[to]][from.toLowerCase()];
+
+      exchangeRate = 1 / priceInFiat;
+    }
+
+    // Save to cache
+    setRateCache(prev => ({
+      ...prev,
+      [cacheKey]: exchangeRate
+    }));
+
+    if (exchangeRate == null || isNaN(exchangeRate)) {
+      setResult('');
+      setRate('Exchange rate unavailable');
+      return;
+}
+
+    setResult(exchangeRate * amount);
+    setRate(`1 ${currencyMap[from]} = ${exchangeRate} ${currencyMap[to]}`);
+
+    } 
+    catch (error) {
+      console.error("Conversion failed:", error);
+    }
+};
+
+    // useEffect -- on load of component, and when dependencies change
+  useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    convert(number_a, option_a, option_b); // call convert after user stops typing
+  }, 100); // 500ms delay (half a second)
+
+  return () => clearTimeout(timeoutId); // cleanup if user types again
+}, [number_a, option_a, option_b]);
+
+
+  return(   
+
+    <div className="currency-converter">  {/* className is used instead of class in React*/}
+    <nav><li onClick={() => setShowNews(prev => !prev)}>Latest Crypto News</li></nav>
+      <CryptoLinks showNews={showNews} />
+   
+      <label className="heading" style={{ color: 'white', fontSize: '40px', fontWeight: '450' }}>Crypto Currency Converter</label>
+      <label className="title" style={{ color: 'white', fontSize: '27px', fontWeight: '300' }}>
+        Check live foreign currency exchange rates</label>
+
+      <div className="currency-A">  {/* contains all. elements */}
+
+        <div className="holder_container"> {/* contains the 2 holders */}
+          <div className='holder_group'>
+            <label style={{ color: 'black', fontSize: '20px', fontWeight: '300' }}>From</label>
+            <div className="holder">
+            
+              
+              <input type="number" name="innitialcurrency" value={number_a} onChange={(e) => setAmount(Number(e.target.value))} />
+              
+              <select className= "select_options"  name="selected_option"  value={option_a} id="currency_choice" 
+              //value i.e option select result will now show as the va;ue option i.e choice of wanted option/ selected opion and stay there abd update 
+              onChange={(e) => {setOption_A(e.target.value); convert(number_a, e.target.value, option_b, );}}>   {/* currency = ['BTC', 'ETH', 'USDT'] index = position 0,1,2 */}
+                        
+                {currencies.map((currency, _index) =>( 
+                <option key={_index}   id={currency}   value={currency}>
+                <span style = {{fontSize:'13px'}}>{currency}</span> - {currencyMap[currency] }  {/* Display the full name */}
+                </option>  
+                ))}  {/* each item in an option needs a key */}  
+                                                                                                                        
+              </select>
+                    
+            </div>
+
           </div>
-        </div>
-        <button id="converter" onClick={convert}>Convert</button>
+          <div className='holder_group'>
+             <label style={{ color: 'black', fontSize: '20px', fontWeight: '300' }}>To</label>
+              <div className="holder">   
+                  <input type="number" name="second_input"   value={Number.isFinite(result) ? result : ''}  readOnly/> 
+                    <select className="select_options2" 
+                            name="option2"  id="currency_choice2" value={option_b} onChange={(e) => {setOption_B(e.target.value); convert(number_a, option_a, e.target.value);}}>
+                            {currencies.map((currency, _index) => (
+                              <option key={_index} value={currency}> 
+                                 <span style = {{fontSize:'13px'}}>{currency}</span> - {currencyMap[currency]}  {/* Display the full name */}
+                              </option>
+                            ))}  
+                    </select>                        
+              </div>{/* end of holder */}
+            </div>
+
+        </div> {/* end of input container */}
+
+    
+          <div className= "exchange" id="exchange">             {/* exchange rate component */}
+            <ExchangeRate rate={rate}/>     {/* passed in the rate variable to be used in the exchange component */}
+            <button id="converter"  onClick={() => convert(number_a, option_a, option_b)}>Convert</button>
+          </div>
+      
+      </div>{/* end of currency A */}
+
+      <div className='bluebox'>
+        <a href>Check The Live Exchange Rates Here</a>
       </div>
-
-      <div id="exchange">
-        {/* exchange rate component */}
-        <ExchangeRate rate={rate} />
-        {/* passed in the rate variable to be used in the exchange component */}
-      </div>
-
-      {/*Event (e)
-        First you have e which is short for event. To understand what it does change onChange={(e)
-        => setName(e.target.value)} to onChange={(e) => console.log(e)}. 
-        Inspect the log and you'll find a list of events in which one of them is target.
-        Open target (if not already opened) and within target, you'll find value. In short, 
-        this is the target value that's being typed in your input, it's what the user is typing.
-
-        useState
-        Your using state to track the value in your input. 
-        So [name] is the getter and [setName] is the setter. 
-        If you notice in your alert you have alert(The name you entered was: ${name}). 
-        The variable name is the getter which means it holds the current value of the state. 
-        On the other hand setName will set that value. It's able to do so because you're setting and 
-        tracking the value here on change onChange={(e) => setName(e.target.value)}
-        means e is the event that is happening which here is change, 
-        target is the element that triggered the event, which here is the input, 
-        and value is the value of the input element Onchange is as the name suggests 
-        and setState is used to change the state you defined eariler 
-        you should read the documentation as well it would clear stuff up maybe an 
-        online explanation on youtube anyways all the best for your React journey
-      */}
     </div>
   )
 }

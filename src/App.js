@@ -7,15 +7,9 @@ import CryptoLinks from "./components/CryptoLinks"
 
 function App() {
  return (
-
     <div className="app">
-      <div className="box">
-      <CurrencyConverter/> 
-      <CryptoLinks/>
-      </div>
-   
+        <CurrencyConverter/> 
     </div>
-
   )
 }
 
