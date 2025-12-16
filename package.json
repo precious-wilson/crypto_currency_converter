@@ -15,12 +15,17 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:network": "react-scripts start --host 0.0.0.0",
+    "start:mobile": "concurrently \"npm run start:network\" \"ngrok http 3000\"",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
+    
   },
+
+  
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -40,6 +45,7 @@
     ]
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "gh-pages": "^6.3.0"
   }
 }

@@ -39,10 +39,6 @@ function CurrencyConverter(){
    return currencyMap[key] 
   }
 
-  
-
-  
-
   const convert = async (amount = number_a, from = option_a, to = option_b) => {
     // when from currency Same as to currency return and set rate to 1:1
    if (from === to) {
@@ -167,15 +163,15 @@ function CurrencyConverter(){
     <nav><li onClick={() => setShowNews(prev => !prev)}>Latest Crypto News</li></nav>
       <CryptoLinks showNews={showNews} />
    
-      <label className="heading" style={{ color: 'white', fontSize: '40px', fontWeight: '450' }}>Crypto Currency Converter</label>
-      <label className="title" style={{ color: 'white', fontSize: '27px', fontWeight: '300' }}>
+      <label className="heading" style={{ color: 'white'  }}>Crypto Currency Converter</label>
+      <label className="title" style={{ color: 'white' }}>
         Check live foreign currency exchange rates</label>
 
       <div className="currency-A">  {/* contains all. elements */}
 
         <div className="holder_container"> {/* contains the 2 holders */}
           <div className='holder_group'>
-            <label style={{ color: 'black', fontSize: '20px', fontWeight: '300' }}>From</label>
+            <label>From</label>
             <div className="holder">
             
               
@@ -183,11 +179,12 @@ function CurrencyConverter(){
               
               <select className= "select_options"  name="selected_option"  value={option_a} id="currency_choice" 
               //value i.e option select result will now show as the va;ue option i.e choice of wanted option/ selected opion and stay there abd update 
-              onChange={(e) => {setOption_A(e.target.value); convert(number_a, e.target.value, option_b, );}}>   {/* currency = ['BTC', 'ETH', 'USDT'] index = position 0,1,2 */}
+              onChange={(e) => {setOption_A(e.target.value);}}>   {/* currency = ['BTC', 'ETH', 'USDT'] index = position 0,1,2 */}
                         
                 {currencies.map((currency, _index) =>( 
                 <option key={_index}   id={currency}   value={currency}>
-                <span style = {{fontSize:'13px'}}>{currency}</span> - {currencyMap[currency] }  {/* Display the full name */}
+                <span style = {{fontSize:'13px'}}>
+                  {currency}</span> - {currencyMap[currency] }  {/* Display the full name */}
                 </option>  
                 ))}  {/* each item in an option needs a key */}  
                                                                                                                         
@@ -197,14 +194,15 @@ function CurrencyConverter(){
 
           </div>
           <div className='holder_group'>
-             <label style={{ color: 'black', fontSize: '20px', fontWeight: '300' }}>To</label>
+             <label >To</label>
               <div className="holder">   
                   <input type="number" name="second_input"   value={Number.isFinite(result) ? result : ''}  readOnly/> 
                     <select className="select_options2" 
-                            name="option2"  id="currency_choice2" value={option_b} onChange={(e) => {setOption_B(e.target.value); convert(number_a, option_a, e.target.value);}}>
+                            name="option2"  id="currency_choice2" value={option_b} onChange={(e) => {setOption_B(e.target.value); }}>
                             {currencies.map((currency, _index) => (
                               <option key={_index} value={currency}> 
-                                 <span style = {{fontSize:'13px'}}>{currency}</span> - {currencyMap[currency]}  {/* Display the full name */}
+                                 <span style = {{fontSize:'13px'}}>
+                                  {currency}</span> - {currencyMap[currency]}  {/* Display the full name */}
                               </option>
                             ))}  
                     </select>                        
@@ -222,7 +220,7 @@ function CurrencyConverter(){
       </div>{/* end of currency A */}
 
       <div className='bluebox'>
-        <a href>Check The Live Exchange Rates Here</a>
+        <a href="https://www.livecoinwatch.com/">Click To See The Live Exchange Rates</a>
       </div>
     </div>
   )
