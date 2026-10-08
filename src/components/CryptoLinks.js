@@ -1,38 +1,108 @@
 
-import axios from 'axios'
-import  {useEffect, useState } from 'react' 
-const API_KEY = process.env.REACT_APP_MARKETAUX_KEY;
+import axios from "axios";
+import { useEffect, useState } from "react";
 
+const API_KEY = process.env.REACT_APP_FINNHUB_KEY;
 
-
-function CryptoLinks({ showNews })
-{
+function CryptoLinks({ showNews }) {
   const [feed, setFeed] = useState([]);
-  /*Added these 2 new state variables here below:*/
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  const fetchNews = async () => 
-  {
-    if (loading) return; // if already fetched, skip API call
+  const fetchNews = async () => {
     setLoading(true);
-    setError(null);
 
-    try 
-    {
-      const response = await axios.get(`https://api.marketaux.com/v1/news/all?api_token=${API_KEY}&search=crypto&limit=20&language=en`
+    try {
+      const response = await axios.get(
+        "https://finnhub.io/api/v1/news",
+        {
+          params: {
+            category: "general",
+            token: API_KEY,
+          },
+        }
+      );
+
+      const keywords = [
+        "stock",
+        "stock market",
+         "stocks",
+        "etf",
+        "nasdaq",
+        "s&p",
+        "ai",
+        "artificial intelligence",
+        "nvidia",
+        "tesla",
+        "bitcoin",
+        "crypto",
+        "earnings",
+        "crash",
+        "interest rate",
+        "inflation",
+        "bond"
+       
+      ];
+
+  const blockedKeywords = [
+  "senate",
+  "watch collection",
+  "senator",
+  "congress",
+  "supreme court",
+  "president",
+  "presidential",
+  "democrat",
+  "republican",
+  "trump",
+  "election",
+  "midterm",
+  "white house",
+  "politician",
+  "politics",
+  "iran",
+  "iraq",
+  "yemen",
+  "political",
+  "justice",
+  "war",
+  "iran",
+  "protest",
+  "arrested",
+  "bail",
+  "israel",
+  "fly",
+  "sales"
+
+];
+
+      const articles = response.data
+        .filter(article => {
+          const text = (
+            article.headline +
+            " " +
+            article.summary
+          ).toLowerCase();
+
+          const isFinance = keywords.some(keyword =>
+  text.includes(keyword)
 );
-      setFeed(response.data.data || []);
-    } 
-    catch (error) {
-      console.error("Error fetching Marketaux news:", error);
-      setError("Failed to load news. Try again later.");
-    }
-    finally {
-        setLoading(false);
-      }
-  };
 
+const isBlocked = blockedKeywords.some(keyword =>
+  text.includes(keyword)
+);
+
+return isFinance && !isBlocked;
+        })
+        .filter(article => article.headline && article.url)
+        .slice(0, 20);
+
+      setFeed(articles);
+    } catch (error) {
+      console.error("Finnhub news error:", error);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (showNews) fetchNews();
@@ -40,27 +110,52 @@ function CryptoLinks({ showNews })
 
   if (!showNews) return null;
 
+  return (
+    <div className="newsfeed">
 
-  const feed_set = feed?.slice(0,20)
-  console.log(feed_set)
-  console.log("Feed:", feed);
-  return( <div className="newsfeed">
-            <div className="newslinks">
-              {feed_set?.map(article => (
-                <a key={article.url} href={article.url}  style = {{textDecoration:'none'}}>
-                  <div className="news-article">
-                    <div className="news-content">
-                      <h4  style = {{color:'rgba(61, 61, 61, 1)'}}className="news-title"> {article.title} </h4>
-                      {article.description && (<p  style = {{color:'rgba(61, 61, 61, 1)', fontWeight:'500'}} className="news-description">{article.description}</p>)}
-                      {article.published_at && ( <p style = {{color:'grey'}}className="news-date">{new Date(article.published_at).toLocaleString()}</p>)}
-                    </div>
-                    {article.image_url && (<img src={article.image_url} alt={article.title} className="news-image" />)}
-                  </div>
-                </a>
-              ))}
-       
+      {loading && <p>Loading latest market news...</p>}
+
+      <div className="newslinks">
+
+        {feed.map(article => (
+          <a
+            key={article.url}
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: "none",  Height: "25%", borderBottom: ".5px solid #8e939e"}}
+>
+            <div className="news-article">
+
+              <div className="news-content">
+
+                <h4 className="news-title">
+                  {article.headline}
+                </h4>
+
+                {article.summary && (
+                  <p className="news-description">
+                    {article.summary}
+                  </p>
+                )}
+
+              </div>
+
+              {article.image && (
+                <img
+                  src={article.image}
+                  alt={article.headline}
+                  className="news-image"
+                />
+              )}
+
             </div>
-          </div>
-        );
-      };
-  export default CryptoLinks 
+          </a>
+        ))}
+
+      </div>
+    </div>
+  );
+}
+
+export default CryptoLinks;

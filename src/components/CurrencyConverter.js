@@ -15,11 +15,27 @@ function CurrencyConverter(){
     NGN: 'Naira'
   }
 
-  const coinGeckoMap = { //hashmap / dictionary of crypto-currencies
-    BTC: 'bitcoin',
-    ETH: 'ethereum',
-    USDT: 'tether'
-};
+const [coins, setCoins] = useState([]); // store top 30 coins
+
+useEffect(() => {
+  const fetchTopCoins = async () => {
+    try {
+      const res = await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+        params: {
+          vs_currency: "usd",
+          order: "market_cap_desc",
+          per_page: 30,
+          page: 1,
+          sparkline: false
+        }
+      });
+      setCoins(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchTopCoins();
+}, []);
 
 
   const fiatCurrencies = ['USD', 'EUR', 'NGN'];  //hashmap / dictionary of fiat currencies
@@ -27,8 +43,8 @@ function CurrencyConverter(){
 
   const currencies = Object.keys(currencyMap)  // creates an array of all the keys in your object. -  ['BTC', 'ETH', 'USDT'] 
 
-  const [option_a, setOption_A] = useState('BTC')
-  const [option_b, setOption_B] = useState('ETH')  //i wanted it start at naira as thats my preferred currency to exchange ..easier for me
+  const [option_a, setOption_A] = useState('bitcoin')
+  const [option_b, setOption_B] = useState('bitcoin')  //i wanted it start at naira as thats my preferred currency to exchange ..easier for me
   const [number_a, setAmount] = useState(1)
   const [result, setResult] = useState(1)
   const [rate, setRate] = useState('')
@@ -38,115 +54,235 @@ function CurrencyConverter(){
   const filter = (key) => { //return the value based on what key was chosen
    return currencyMap[key] 
   }
+const convert = async (
+  amount = number_a,
+  from = option_a,
+  to = option_b
+) => {
+  let exchangeRate;
 
-  const convert = async (amount = number_a, from = option_a, to = option_b) => {
-    // when from currency Same as to currency return and set rate to 1:1
-   if (from === to) {
+  // Same currency
+  if (from === to) {
     if (!amount || isNaN(amount)) {
       setResult('');
       setRate('');
       return;
     }
+
     setResult(amount);
-    setRate(`1 ${currencyMap[from]} = 1 ${currencyMap[to]}`);
+    setRate(
+      `1 ${currencyMap[from] || from.toUpperCase()} = 1 ${
+        currencyMap[to] || to.toUpperCase()
+      }`
+    );
+
     return;
-}
+  }
 
-    const cacheKey = `${from}_${to}`;
+  const cacheKey = `${from}_${to}`;
 
-    // 2️⃣ Check cache first
-    if (rateCache[cacheKey]) 
-    {
-      const cachedRate = rateCache[cacheKey];
-      setResult(cachedRate * amount);
-      setRate(`1 ${currencyMap[from]} = ${cachedRate} ${currencyMap[to]}`);
-      return;
-    }
-    
-    try 
-    {
-      let exchangeRate;
-      const isFromCrypto = coinGeckoMap[from];
-      const isToCrypto = coinGeckoMap[to];
+  // Check cache
+  if (rateCache[cacheKey]) {
+    const cachedRate = rateCache[cacheKey];
 
- //Crypto → Anything (CoinGecko)
-      if (isFromCrypto && !isToCrypto) 
-      {
-        const response = await axios.get(
-          'https://api.coingecko.com/api/v3/simple/price',
-          {
-            params: {
-              ids: coinGeckoMap[from],
-              vs_currencies: to.toLowerCase()
-            }
-          }
+    setResult(cachedRate * amount);
+
+    const fromName =
+      currencyMap[from] ||
+      coins.find(c => c.id === from)?.name ||
+      from.toUpperCase();
+
+    const toName =
+      currencyMap[to] ||
+      coins.find(c => c.id === to)?.name ||
+      to.toUpperCase();
+
+    setRate(`1 ${fromName} = ${cachedRate} ${toName}`);
+
+    return;
+  }
+
+  try {
+    const isFromCrypto = !!coins.find(c => c.id === from);
+    const isToCrypto = !!coins.find(c => c.id === to);
+
+    // =========================
+    // CRYPTO → FIAT
+    // =========================
+    if (isFromCrypto && !isToCrypto) {
+
+      const coin = coins.find(c => c.id === from);
+
+      if (!coin) {
+        throw new Error("Crypto not found");
+      }
+
+      const response = await axios.get(
+        `https://api.coinpaprika.com/v1/tickers/${coin.symbol.toLowerCase()}-${coin.name
+          .toLowerCase()
+          .replace(/\s+/g, "-")}?quotes=USD`
+      );
+
+      const cryptoUsd =
+        response.data?.quotes?.USD?.price;
+
+      if (!cryptoUsd) {
+        throw new Error("Crypto price unavailable");
+      }
+
+      // USD → fiat
+      if (to === "USD") {
+        exchangeRate = cryptoUsd;
+      } else {
+        const fiatResponse = await axios.get(
+          `https://api.frankfurter.dev/v2/rate/USD/${to}`
         );
 
-      exchangeRate =
-        response.data[coinGeckoMap[from]][to.toLowerCase()];
+        const usdToFiat = fiatResponse.data?.rate;
+
+        if (!usdToFiat) {
+          throw new Error("Fiat rate unavailable");
+        }
+
+        exchangeRate = cryptoUsd * usdToFiat;
+      }
     }
 
-      // 4️⃣ Fiat → Fiat (exchangerate.host - latest endpoint)
+    // =========================
+    // FIAT → FIAT
+    // =========================
     else if (!isFromCrypto && !isToCrypto) {
-      const response = await axios.get( 'https://api.exchangerate.host/latest', {params: {base: from, symbols: to}});
-      exchangeRate = response.data?.rates?.[to];
+
+      if (from === to) {
+        exchangeRate = 1;
+      } else {
+        const response = await axios.get(
+          `https://api.frankfurter.dev/v2/rate/${from}/${to}`
+        );
+
+        exchangeRate = response.data?.rate;
+      }
     }
 
-     // 5️⃣ Crypto → Crypto
+    // =========================
+    // CRYPTO → CRYPTO
+    // =========================
     else if (isFromCrypto && isToCrypto) {
-      const response = await axios.get(
-        'https://api.coingecko.com/api/v3/simple/price',
-        {
-          params: {
-            ids: coinGeckoMap[from],
-            vs_currencies: to.toLowerCase()
-          }
-        }
+
+      const fromCoin = coins.find(c => c.id === from);
+      const toCoin = coins.find(c => c.id === to);
+
+      if (!fromCoin || !toCoin) {
+        throw new Error("Crypto not found");
+      }
+
+      const fromResponse = await axios.get(
+        `https://api.coinpaprika.com/v1/tickers/${fromCoin.symbol.toLowerCase()}-${fromCoin.name
+          .toLowerCase()
+          .replace(/\s+/g, "-")}?quotes=USD`
       );
 
-      exchangeRate =
-        response.data[coinGeckoMap[from]][to.toLowerCase()];
+      const toResponse = await axios.get(
+        `https://api.coinpaprika.com/v1/tickers/${toCoin.symbol.toLowerCase()}-${toCoin.name
+          .toLowerCase()
+          .replace(/\s+/g, "-")}?quotes=USD`
+      );
+
+      const fromUsd =
+        fromResponse.data?.quotes?.USD?.price;
+
+      const toUsd =
+        toResponse.data?.quotes?.USD?.price;
+
+      if (!fromUsd || !toUsd) {
+        throw new Error("Crypto price unavailable");
+      }
+
+      exchangeRate = fromUsd / toUsd;
     }
 
-    // 6️⃣ Fiat → Crypto
+    // =========================
+    // FIAT → CRYPTO
+    // =========================
     else if (!isFromCrypto && isToCrypto) {
-      const response = await axios.get(
-        'https://api.coingecko.com/api/v3/simple/price',
-        {
-          params: {
-            ids: coinGeckoMap[to],
-            vs_currencies: from.toLowerCase()
-          }
-        }
+
+      const coin = coins.find(c => c.id === to);
+
+      if (!coin) {
+        throw new Error("Crypto not found");
+      }
+
+      const cryptoResponse = await axios.get(
+        `https://api.coinpaprika.com/v1/tickers/${coin.symbol.toLowerCase()}-${coin.name
+          .toLowerCase()
+          .replace(/\s+/g, "-")}?quotes=USD`
       );
 
-      const priceInFiat =
-        response.data[coinGeckoMap[to]][from.toLowerCase()];
+      const cryptoUsd =
+        cryptoResponse.data?.quotes?.USD?.price;
 
-      exchangeRate = 1 / priceInFiat;
+      if (!cryptoUsd) {
+        throw new Error("Crypto price unavailable");
+      }
+
+      let fiatToUsd;
+
+      if (from === "USD") {
+        fiatToUsd = 1;
+      } else {
+        const fiatResponse = await axios.get(
+          `https://api.frankfurter.dev/v2/rate/${from}/USD`
+        );
+
+        fiatToUsd = fiatResponse.data?.rate;
+      }
+
+      if (!fiatToUsd) {
+        throw new Error("Fiat rate unavailable");
+      }
+
+      exchangeRate = fiatToUsd / cryptoUsd;
     }
 
-    // Save to cache
+    if (
+      exchangeRate == null ||
+      isNaN(exchangeRate)
+    ) {
+      setResult('');
+      setRate('Exchange rate unavailable');
+      return;
+    }
+
+    // Save rate
     setRateCache(prev => ({
       ...prev,
       [cacheKey]: exchangeRate
     }));
 
-    if (exchangeRate == null || isNaN(exchangeRate)) {
-      setResult('');
-      setRate('Exchange rate unavailable');
-      return;
-}
+    // Calculate result to 2 decimal places
+    setResult(Number((exchangeRate * amount).toFixed(2)));
 
-    setResult(exchangeRate * amount);
-    setRate(`1 ${currencyMap[from]} = ${exchangeRate} ${currencyMap[to]}`);
+    const fromName =
+      currencyMap[from] ||
+      coins.find(c => c.id === from)?.name ||
+      from.toUpperCase();
 
-    } 
-    catch (error) {
-      console.error("Conversion failed:", error);
-    }
+    const toName =
+      currencyMap[to] ||
+      coins.find(c => c.id === to)?.name ||
+      to.toUpperCase();
+
+    setRate(
+      `1 ${fromName} = ${exchangeRate} ${toName}`
+    );
+
+  } catch (error) {
+    console.error("Conversion failed:", error);
+
+    setResult('');
+    setRate('Exchange rate unavailable');
+  }
 };
-
     // useEffect -- on load of component, and when dependencies change
   useEffect(() => {
   const timeoutId = setTimeout(() => {
@@ -171,53 +307,45 @@ function CurrencyConverter(){
 
         <div className="holder_container"> {/* contains the 2 holders */}
           <div className='holder_group'>
-            <label>From</label>
-            <div className="holder">
-            
-              
-              <input type="number" name="innitialcurrency" value={number_a} onChange={(e) => setAmount(Number(e.target.value))} />
+            <label htmlFor="from">From</label>
+              <div className="holder">
+              <input type="number" id="from" name="innitialcurrency" value={number_a} onChange={(e) => setAmount(Number(e.target.value))} />
               
               <select className= "select_options"  name="selected_option"  value={option_a} id="currency_choice" 
               //value i.e option select result will now show as the va;ue option i.e choice of wanted option/ selected opion and stay there abd update 
               onChange={(e) => {setOption_A(e.target.value);}}>   {/* currency = ['BTC', 'ETH', 'USDT'] index = position 0,1,2 */}
                         
-                {currencies.map((currency, _index) =>( 
-                <option key={_index}   id={currency}   value={currency}>
-                <span style = {{fontSize:'13px'}}>
-                  {currency}</span> - {currencyMap[currency] }  {/* Display the full name */}
-                </option>  
-                ))}  {/* each item in an option needs a key */}  
-                                                                                                                        
+              {fiatCurrencies.map(fiat => ( <option key={fiat} value={fiat}>{fiat}</option>))}
+                {coins.map((coin) => (
+                  <option key={coin.id} value={coin.id}>
+                    {coin.symbol.toUpperCase()} - {coin.name}
+                  </option>))}                                                                                           
               </select>
-                    
-            </div>
+          </div> {/* end of holder */}
 
-          </div>
+          </div> {/* end of holder group */}
           <div className='holder_group'>
-             <label >To</label>
-              <div className="holder">   
-                  <input type="number" name="second_input"   value={Number.isFinite(result) ? result : ''}  readOnly/> 
-                    <select className="select_options2" 
-                            name="option2"  id="currency_choice2" value={option_b} onChange={(e) => {setOption_B(e.target.value); }}>
-                            {currencies.map((currency, _index) => (
-                              <option key={_index} value={currency}> 
-                                 <span style = {{fontSize:'13px'}}>
-                                  {currency}</span> - {currencyMap[currency]}  {/* Display the full name */}
-                              </option>
-                            ))}  
+              <label htmlFor="to">To</label> 
+               <div className="holder">
+              
+                  <input type="number" id = "to" name="second_input"   value={Number.isFinite(result) ? result : ''}  readOnly/> 
+                    <select className="select_options2" name="option2"  id="currency_choice2" value={option_b} onChange={(e) => {setOption_B(e.target.value); }}>
+                      {fiatCurrencies.map(fiat => ( 
+                        <option key={fiat} value={fiat}>{fiat}</option>))}
+                        {coins.map((coin) => ( 
+                          <option key={coin.id} value={coin.id}>
+                            {coin.symbol.toUpperCase()} - {coin.name}
+                          </option>))}
                     </select>                        
               </div>{/* end of holder */}
-            </div>
+          </div>  {/* end of holder group */}
 
-        </div> {/* end of input container */}
-
-    
-          <div className= "exchange" id="exchange">             {/* exchange rate component */}
+        
+         <div className= "exchange" id="exchange">             {/* exchange rate component */}
             <ExchangeRate rate={rate}/>     {/* passed in the rate variable to be used in the exchange component */}
-            <button id="converter"  onClick={() => convert(number_a, option_a, option_b)}>Convert</button>
           </div>
-      
-      </div>{/* end of currency A */}
+          </div> {/* end of holder container */}
+          </div>
 
       <div className='bluebox'>
         <a href="https://www.livecoinwatch.com/">Click To See The Live Exchange Rates</a>
