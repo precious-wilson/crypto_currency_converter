@@ -314,12 +314,13 @@ const convert = async (
               <select className= "select_options"  name="selected_option"  value={option_a} id="currency_choice" 
               //value i.e option select result will now show as the va;ue option i.e choice of wanted option/ selected opion and stay there abd update 
               onChange={(e) => {setOption_A(e.target.value);}}>   {/* currency = ['BTC', 'ETH', 'USDT'] index = position 0,1,2 */}
-                        
+                    
               {fiatCurrencies.map(fiat => ( <option key={fiat} value={fiat}>{fiat}</option>))}
                 {coins.map((coin) => (
                   <option key={coin.id} value={coin.id}>
                     {coin.symbol.toUpperCase()} - {coin.name}
-                  </option>))}                                                                                           
+                  </option>))}
+                                                                                                      
               </select>
           </div> {/* end of holder */}
 

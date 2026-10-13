@@ -218,15 +218,11 @@ scrollbar-width: none;;
   font-size:20px;
 }
 
-
-
 .holder option{
   color: #4a4a4a;
   max-height: 50%;
   overflow-y:auto;
-  
 }
-
 .options{
   max-height:50vh;
   overflow-y:scroll;
