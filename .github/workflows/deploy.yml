@@ -12,6 +12,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Backend Dependencies
+        run: npm install
+        working-directory: backend
+
+      - name: Package Backend into Lambda Zip
+        run: |
+          cd backend
+          zip -r ../lambda_function.zip .
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -29,28 +43,25 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          
-      - name: Install Backend Dependencies
-        run: cd backend && npm install
-
-      - name: Build/Run Backend
-        run: cd backend && npm run build  # (or whatever script your backend runs)
-
-      - name: Build React Frontend
-        run: |
-          npm ci
-          npm run build
+      # Uncomment and adjust this if your frontend lives in a subfolder (e.g., frontend/)
+      # - name: Build React Frontend
+      #   run: |
+      #     npm install
+      #     npm run build
+      #   working-directory: frontend
 
       - name: Sync Frontend to S3 & Invalidate Cache
         run: |
           BUCKET_NAME=$(terraform output -raw s3_bucket_name)
-          aws s3 sync build/ s3://$BUCKET_NAME --delete
           
-          # Optional: Invalidate CloudFront CDN cache so users instantly see updates
+          # Check if build folder exists before syncing
+          if [ -d "build" ]; then
+            aws s3 sync build/ s3://$BUCKET_NAME --delete
+          elif [ -d "frontend/build" ]; then
+            aws s3 sync frontend/build/ s3://$BUCKET_NAME --delete
+          fi
+          
+          # Invalidate CloudFront CDN cache so users instantly see updates
           DIST_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || true)
           if [ ! -z "$DIST_ID" ]; then
             aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
