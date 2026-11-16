@@ -17,6 +17,7 @@ jobs:
         with:
           node-version: '22'
 
+      # 1. Build & Package Backend Lambda
       - name: Install Backend Dependencies
         run: npm install
         working-directory: backend
@@ -26,6 +27,7 @@ jobs:
           cd backend
           zip -r ../lambda_function.zip .
 
+      # 2. Provision AWS Infrastructure via Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -43,23 +45,20 @@ jobs:
           terraform init
           terraform apply -auto-approve
 
-      # Uncomment and adjust this if your frontend lives in a subfolder (e.g., frontend/)
-      # - name: Build React Frontend
-      #   run: |
-      #     npm install
-      #     npm run build
-      #   working-directory: frontend
+      # 3. Build React Frontend
+      - name: Build React Frontend
+        run: |
+          npm install
+          npm run build
+        working-directory: frontend
 
+      # 4. Sync Built Frontend to S3 and Invalidate CloudFront Cache
       - name: Sync Frontend to S3 & Invalidate Cache
         run: |
           BUCKET_NAME=$(terraform output -raw s3_bucket_name)
           
-          # Check if build folder exists before syncing
-          if [ -d "build" ]; then
-            aws s3 sync build/ s3://$BUCKET_NAME --delete
-          elif [ -d "frontend/build" ]; then
-            aws s3 sync frontend/build/ s3://$BUCKET_NAME --delete
-          fi
+          # Upload build folder to the S3 bucket created in frontend.tf
+          aws s3 sync frontend/build/ s3://$BUCKET_NAME --delete
           
           # Invalidate CloudFront CDN cache so users instantly see updates
           DIST_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || true)
