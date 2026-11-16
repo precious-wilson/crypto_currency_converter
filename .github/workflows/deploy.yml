@@ -62,8 +62,10 @@ jobs:
           # Upload build folder to the S3 bucket created in frontend.tf
           aws s3 sync frontend/build/ s3://$BUCKET_NAME --delete
           
-          # Invalidate CloudFront CDN cache so users instantly see updates
-          DIST_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || true)
-          if [ ! -z "$DIST_ID" ]; then
-            aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
+          # Safely fetch CloudFront ID (only invalidate if it's a valid ID starting with E)
+          DIST_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+          if [[ "$DIST_ID" == E* ]]; then
+            aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+          else
+            echo "Skipping CloudFront invalidation (no valid distribution ID output found)."
           fi
