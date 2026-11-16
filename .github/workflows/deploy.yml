@@ -1,0 +1,52 @@
+name: Deploy Serverless Crypto Converter
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-cloud-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Terraform Init & Apply Infrastructure
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build React Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Sync Frontend to S3 & Invalidate Cache
+        run: |
+          BUCKET_NAME=$(terraform output -raw s3_bucket_name)
+          aws s3 sync build/ s3://$BUCKET_NAME --delete
+          
+          # Optional: Invalidate CloudFront CDN cache so users instantly see updates
+          DIST_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || true)
+          if [ ! -z "$DIST_ID" ]; then
+            aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
+          fi
