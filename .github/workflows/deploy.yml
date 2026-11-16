@@ -54,7 +54,7 @@ jobs:
           npm run build
         working-directory: frontend
 
-      # 4. Sync Built Frontend to S3 and Invalidate CloudFront Cache
+     # 4. Sync Built Frontend to S3 and Invalidate CloudFront Cache
       - name: Sync Frontend to S3 & Invalidate Cache
         run: |
           BUCKET_NAME=$(terraform output -raw s3_bucket_name)
