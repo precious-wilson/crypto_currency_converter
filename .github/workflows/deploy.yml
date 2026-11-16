@@ -35,7 +35,7 @@ jobs:
           node-version: '22'
           
       - name: Install Backend Dependencies
-        run: cd backend && npm ci
+        run: cd backend && npm install
 
       - name: Build/Run Backend
         run: cd backend && npm run build  # (or whatever script your backend runs)
