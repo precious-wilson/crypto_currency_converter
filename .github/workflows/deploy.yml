@@ -36,8 +36,10 @@ jobs:
           cache: 'npm'
           
       - name: Install Backend Dependencies
-        run: npm ci
-        working-directory: backend
+        run: cd backend && npm ci
+
+      - name: Build/Run Backend
+        run: cd backend && npm run build  # (or whatever script your backend runs)
 
       - name: Build React Frontend
         run: |
