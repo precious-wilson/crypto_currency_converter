@@ -47,9 +47,11 @@ jobs:
 
       # 3. Build React Frontend
       - name: Build React Frontend
+        env:
+          CI: false
         run: |
           npm install
-          CI = false npm run build
+          npm run build
         working-directory: frontend
 
       # 4. Sync Built Frontend to S3 and Invalidate CloudFront Cache
